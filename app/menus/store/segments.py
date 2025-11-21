@@ -3,6 +3,8 @@ from app.client.store.segments import get_segments
 from app.menus.util import clear_screen, pause
 from app.service.auth import AuthInstance
 from app.menus.package import show_package_details
+from app.console import console, print_cyber_panel, cyber_input, loading_animation
+from rich.table import Table
 
 WIDTH = 55
 
@@ -12,10 +14,11 @@ def show_store_segments_menu(is_enterprise: bool = False):
         api_key = AuthInstance.api_key
         tokens = AuthInstance.get_active_tokens()
         
-        print("Fetching store segments...")
-        segments_res = get_segments(api_key, tokens, is_enterprise)
+        with loading_animation("Fetching store segments..."):
+            segments_res = get_segments(api_key, tokens, is_enterprise)
+
         if not segments_res:
-            print("No segments found.")
+            console.print("[warning]No segments found.[/]")
             in_store_segments_menu = False
             continue
         
@@ -23,19 +26,19 @@ def show_store_segments_menu(is_enterprise: bool = False):
         
         clear_screen()
         
-        print("=" * WIDTH)
-        print("Store Segments:")
-        print("=" * WIDTH)
-        
         packages = {}
+
         for i, segment in enumerate(segments):
             name = segment.get("title", "N/A")
             banners = segment.get("banners", [])
             
             letter = chr(65 + i)  # Convert 0 -> A, 1 -> B, etc.
-            print("-" * WIDTH)
-            print(f"{letter}. Banner: {name}")
-            print("-" * WIDTH)
+
+            table = Table(show_header=True, header_style="neon_pink", box=None, padding=(0, 1))
+            table.add_column("ID", style="neon_green", justify="right", width=4)
+            table.add_column("Package Name", style="bold white")
+            table.add_column("Price", style="yellow")
+            table.add_column("Validity", style="cyan")
             
             for j, banner in enumerate(banners):
                 discounted_price = banner.get("discounted_price", "N/A")
@@ -51,23 +54,24 @@ def show_store_segments_menu(is_enterprise: bool = False):
                     "action_type": action_type
                 }
                 
-                print(f"  {letter}{j + 1}. {family_name} - {title}")
-                print(f"     Price: Rp{discounted_price}")
-                print(f"     Validity: {validity}")
-                print("-" * WIDTH)
+                table.add_row(
+                    f"{letter}{j + 1}",
+                    f"{family_name} - {title}",
+                    f"Rp{discounted_price}",
+                    validity
+                )
                 
-                # print(json.dumps(banner, indent=4))  # Debug: Show full banner data
+            print_cyber_panel(table, title=f"BANNER: {name}")
             
-        print("00. Back to Main Menu")
-        print("=" * WIDTH)
-        choice = input("Enter your choice to view package details (e.g., A1, B2): ")
+        console.print("[dim]00. Back to Main Menu[/]")
+        choice = cyber_input("Enter your choice to view package details (e.g., A1, B2)")
         if choice == "00":
             in_store_segments_menu = False
             continue
         
         selected_pkg = packages.get(choice.lower())
         if not selected_pkg:
-            print("Invalid choice. Please enter a valid package code.")
+            console.print("[error]Invalid choice. Please enter a valid package code.[/]")
             pause()
             continue
         
@@ -82,7 +86,5 @@ def show_store_segments_menu(is_enterprise: bool = False):
                 is_enterprise
             )
         else:
-            print("=" * WIDTH)
-            print("Unhandled Action Type")
-            print(f"Action type: {action_type}\nParam: {action_param}")
+            console.print(f"[warning]Unhandled Action Type: {action_type}\nParam: {action_param}[/]")
             pause()

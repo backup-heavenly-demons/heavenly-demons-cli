@@ -2,6 +2,8 @@ from app.client.store.redeemables import get_redeemables
 from app.service.auth import AuthInstance
 from app.menus.util import clear_screen, pause
 from app.menus.package import show_package_details, get_packages_by_family
+from app.console import console, print_cyber_panel, cyber_input, loading_animation
+from rich.table import Table
 
 from datetime import datetime
 
@@ -13,10 +15,11 @@ def show_redeemables_menu(is_enterprise: bool = False):
         api_key = AuthInstance.api_key
         tokens = AuthInstance.get_active_tokens()
         
-        print("Fetching redeemables...")
-        redeemables_res = get_redeemables(api_key, tokens, is_enterprise)
+        with loading_animation("Fetching redeemables..."):
+            redeemables_res = get_redeemables(api_key, tokens, is_enterprise)
+
         if not redeemables_res:
-            print("No redeemables found.")
+            console.print("[warning]No redeemables found.[/]")
             in_redeemables_menu = False
             continue
         
@@ -24,24 +27,23 @@ def show_redeemables_menu(is_enterprise: bool = False):
         
         clear_screen()
         
-        print("=" * WIDTH)
-        print("Redeemables:")
-        print("=" * WIDTH)
-        
         packages = {}
+
         for i, category in enumerate(categories):
             category_name = category.get("category_name", "N/A")
             category_code = category.get("category_code", "N/A")
             redemables = category.get("redeemables", [])
             
             letter = chr(65 + i)
-            print("-" * WIDTH)
-            print(f"{letter}. Category: {category_name}")
-            print(f"Code: {category_code}")
-            print("-" * WIDTH)
+
+            table = Table(show_header=True, header_style="neon_pink", box=None)
+            table.add_column("ID", style="neon_green", justify="right", width=4)
+            table.add_column("Name", style="bold white")
+            table.add_column("Valid Until", style="cyan")
+            table.add_column("Action Type", style="dim")
             
             if len(redemables) == 0:
-                print("  No redeemables in this category.")
+                # console.print(f"[dim]No redeemables in category {category_name}[/]")
                 continue
             
             for j, redemable in enumerate(redemables):
@@ -59,24 +61,24 @@ def show_redeemables_menu(is_enterprise: bool = False):
                     "action_type": action_type
                 }
                 
-                print(f"  {letter}{j + 1}. {name}")
-                print(f"     Valid Until: {valid_until_date}")
-                print(f"     Action Type: {action_type}")
-                print("-" * WIDTH)
+                table.add_row(
+                    f"{letter}{j + 1}",
+                    name,
+                    valid_until_date,
+                    action_type
+                )
+
+            print_cyber_panel(table, title=f"CATEGORY: {category_name} ({category_code})")
                 
-                # print(json.dumps(redemable, indent=4))  # Debug: Show full redemable data
-                
-        print("00. Back")
-        print("=" * WIDTH)
-        print("Enter your choice to view package details (e.g., A1, B2): ")
+        console.print("[dim]00. Back[/]")
         
-        choice = input()
+        choice = cyber_input("Enter your choice to view package details (e.g., A1, B2)")
         if choice == "00":
             in_redeemables_menu = False
             continue
         selected_pkg = packages.get(choice.lower())
         if not selected_pkg:
-            print("Invalid choice. Please enter a valid package code.")
+            console.print("[error]Invalid choice. Please enter a valid package code.[/]")
             pause()
             continue
         action_param = selected_pkg["action_param"]
@@ -92,7 +94,5 @@ def show_redeemables_menu(is_enterprise: bool = False):
                 is_enterprise,
             )
         else:
-            print("=" * WIDTH)
-            print("Unhandled Action Type")
-            print(f"Action type: {action_type}\nParam: {action_param}")
+            console.print(f"[warning]Unhandled Action Type: {action_type}\nParam: {action_param}[/]")
             pause()

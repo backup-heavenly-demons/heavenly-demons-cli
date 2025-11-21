@@ -13,33 +13,35 @@ from app.client.circle import (
     spending_tracker,
     get_bonus_data,
 )
-
 from app.service.auth import AuthInstance
 from app.client.encrypt import decrypt_circle_msisdn
+from app.console import console, print_cyber_panel, cyber_input, loading_animation
+from rich.table import Table
+from rich.panel import Panel
 
 WIDTH = 55
 
 def show_circle_creation(api_key: str, tokens: dict):
     clear_screen()
-    print("Create a new Circle")
-    print("-" * WIDTH)
+    console.print(Panel("Create a new Circle", title="CREATE CIRCLE", border_style="neon_pink"))
     
-    parent_name = input("Enter your name (Parent): ")
-    group_name = input("Enter Circle name: ")
-    member_msisdn = input("Enter initial member's MSISDN (e.g., 6281234567890): ")
-    member_name = input("Enter initial member's name: ")
+    parent_name = cyber_input("Enter your name (Parent)")
+    group_name = cyber_input("Enter Circle name")
+    member_msisdn = cyber_input("Enter initial member's MSISDN (e.g., 6281234567890)")
+    member_name = cyber_input("Enter initial member's name")
     
-    create_res = create_circle(
-        api_key,
-        tokens,
-        parent_name,
-        group_name,
-        member_msisdn,
-        member_name
-    )
+    with loading_animation("Creating Circle..."):
+        create_res = create_circle(
+            api_key,
+            tokens,
+            parent_name,
+            group_name,
+            member_msisdn,
+            member_name
+        )
     
-    print("Server Response:")
-    print(json.dumps(create_res, indent=2))
+    console.print("[neon_green]Server Response:[/]")
+    console.print_json(data=create_res)
     
     pause()
 
@@ -54,27 +56,29 @@ def show_bonus_list(
     while in_circle_bonus_menu:
         clear_screen()
         
-        print("Fetching bonus data...")
-        bonus_data = get_bonus_data(
-            api_key,
-            tokens,
-            parent_subs_id,
-            family_id
-        )
+        with loading_animation("Fetching bonus data..."):
+            bonus_data = get_bonus_data(
+                api_key,
+                tokens,
+                parent_subs_id,
+                family_id
+            )
         if bonus_data.get("status") != "SUCCESS":
-            print("Failed to fetch bonus data.")
+            console.print("[error]Failed to fetch bonus data.[/]")
             pause()
             return
         
         bonus_list = bonus_data.get("data", {}).get("bonuses", [])
         if not bonus_list:
-            print("No bonus data available.")
+            console.print("[warning]No bonus data available.[/]")
             pause()
             return
         
-        print("=" * WIDTH)
-        print("Circle Bonus List".center(WIDTH))
-        print("=" * WIDTH)
+        bonus_table = Table(show_header=True, header_style="neon_pink", box=None)
+        bonus_table.add_column("No", style="neon_green", justify="right", width=4)
+        bonus_table.add_column("Bonus Name", style="bold white")
+        bonus_table.add_column("Type", style="cyan")
+        bonus_table.add_column("Action", style="dim")
         
         for idx, bonus in enumerate(bonus_list, start=1):
             bonus_name = bonus.get("name", "N/A")
@@ -82,44 +86,47 @@ def show_bonus_list(
             action_type = bonus.get("action_type", "N/A")
             action_param = bonus.get("action_param", "N/A")
             
-            print(f"{idx}. {bonus_name} | Type: {bonus_type}")
-            print(f"   Action: {action_type} | Param: {action_param}")
+            bonus_table.add_row(
+                str(idx),
+                bonus_name,
+                bonus_type,
+                f"{action_type}\n{action_param}"
+            )
+
+        print_cyber_panel(bonus_table, title="CIRCLE BONUS LIST")
             
-        print("-" * WIDTH)
-        print("Options:")
-        print("-" * WIDTH)
-        print("Enter the number of the bonus to view detail.")
-        print("00. Back")
+        console.print("[dim]Enter the number of the bonus to view detail.\n00. Back[/]")
         
-        choice = input("Pilih opsi: ")
+        choice = cyber_input("Pilih opsi")
         if choice == "00":
             in_circle_bonus_menu = False
         else:
-            bonus_number = int(choice)
-            if bonus_number < 1 or bonus_number > len(bonus_list):
-                print("Invalid bonus number.")
-                pause()
-                continue
-            
-            selected_bonus = bonus_list[bonus_number - 1]
-            action_type = selected_bonus.get("action_type", "N/A")
-            action_param = selected_bonus.get("action_param", "N/A")
-            
-            if action_type == "PLP":
-                get_packages_by_family(action_param)
-            elif action_type == "PDP":
-                show_package_details(
-                    api_key,
-                    tokens,
-                    action_param,
-                    False,
-                )
+            if choice.isdigit():
+                bonus_number = int(choice)
+                if bonus_number < 1 or bonus_number > len(bonus_list):
+                    console.print("[error]Invalid bonus number.[/]")
+                    pause()
+                    continue
+
+                selected_bonus = bonus_list[bonus_number - 1]
+                action_type = selected_bonus.get("action_type", "N/A")
+                action_param = selected_bonus.get("action_param", "N/A")
+
+                if action_type == "PLP":
+                    get_packages_by_family(action_param)
+                elif action_type == "PDP":
+                    show_package_details(
+                        api_key,
+                        tokens,
+                        action_param,
+                        False,
+                    )
+                else:
+                    console.print(f"[warning]Unhandled Action Type: {action_type}\nParam: {action_param}[/]")
+                    pause()
             else:
-                print("=" * WIDTH)
-                print("Unhandled Action Type")
-                print(f"Action type: {action_type}\nParam: {action_param}")
-                pause()
-        
+                 console.print("[error]Invalid input.[/]")
+                 pause()
 
 def show_circle_info(api_key: str, tokens: dict):
     in_circle_menu = True
@@ -128,9 +135,12 @@ def show_circle_info(api_key: str, tokens: dict):
 
     while in_circle_menu:
         clear_screen()
-        group_res = get_group_data(api_key, tokens)
+
+        with loading_animation("Fetching circle data..."):
+            group_res = get_group_data(api_key, tokens)
+
         if group_res.get("status") != "SUCCESS":
-            print("Failed to fetch circle data.")
+            console.print("[error]Failed to fetch circle data.[/]")
             pause()
             return
         
@@ -138,9 +148,9 @@ def show_circle_info(api_key: str, tokens: dict):
         group_id = group_data.get("group_id", "") # or family_id
 
         if group_id == "":
-            print("You are not part of any Circle.")
+            console.print("[warning]You are not part of any Circle.[/]")
             
-            create_new = input("Do you want to create a new Circle? (y/n): ")
+            create_new = cyber_input("Do you want to create a new Circle? (y/n)")
             if create_new.lower() == "y":
                 show_circle_creation(api_key, tokens)
                 continue
@@ -150,23 +160,25 @@ def show_circle_info(api_key: str, tokens: dict):
         
         group_status = group_data.get("group_status", "N/A")
         if group_status == "BLOCKED":
-            print("This Circle is currently blocked.")
+            console.print("[error]This Circle is currently blocked.[/]")
             pause()
             return
         
         group_name = group_data.get("group_name", "N/A")
         owner_name = group_data.get("owner_name", "N/A")
         
-        members_res = get_group_members(api_key, tokens, group_id)
+        with loading_animation("Fetching members..."):
+            members_res = get_group_members(api_key, tokens, group_id)
+
         if members_res.get("status") != "SUCCESS":
-            print("Failed to fetch circle members.")
+            console.print("[error]Failed to fetch circle members.[/]")
             pause()
             return
         
         members_data = members_res.get("data", {})
         members = members_data.get("members", [])
         if len(members) == 0:
-            print("No members found in the Circle.")
+            console.print("[warning]No members found in the Circle.[/]")
             pause()
             return
         
@@ -188,19 +200,18 @@ def show_circle_info(api_key: str, tokens: dict):
         remaining_byte = benefit.get("remaining", 0)
         
         formatted_allocation = format_quota_byte(allocation_byte)
-        formatted_consumption = format_quota_byte(consumption_byte)
         formatted_remaining = format_quota_byte(remaining_byte)
         
         # Spending Tracker
-        spending_res = spending_tracker(
-            api_key,
-            tokens,
-            parent_subs_id,
-            group_id
-        )
+        with loading_animation("Fetching spending tracker..."):
+            spending_res = spending_tracker(
+                api_key,
+                tokens,
+                parent_subs_id,
+                group_id
+            )
         if spending_res.get("status") != "SUCCESS":
-            print("Failed to fetch spending tracker data.")
-            print(spending_res)
+            console.print("[error]Failed to fetch spending tracker data.[/]")
             pause()
             return
         
@@ -210,23 +221,26 @@ def show_circle_info(api_key: str, tokens: dict):
         
         clear_screen()
         
-        print("=" * WIDTH)
-        print(f"Circle: {group_name} ({group_status})".center(WIDTH))
-        print(f"Owner: {owner_name} {parrent_msisdn}".center(WIDTH))
-        print("-" * WIDTH)
-        print(f"Package: {package_name} | {formatted_remaining} / {formatted_allocation}".center(WIDTH))
-        print("-" * WIDTH)
-        print(f"Spending: Rp{spend:,} / Rp{target:,}".center(WIDTH))
-        print("=" * WIDTH)
+        # Header Info
+        info_text = f"""[bold cyan]Circle:[/] {group_name} ({group_status})
+[bold cyan]Owner:[/] {owner_name} {parrent_msisdn}
+[bold cyan]Package:[/] {package_name} | {formatted_remaining} / {formatted_allocation}
+[bold cyan]Spending:[/] Rp{spend:,} / Rp{target:,}"""
+        print_cyber_panel(info_text, title="CIRCLE INFO")
         
-        print("Members:")
+        # Members List
+        table = Table(show_header=True, header_style="neon_pink", box=None)
+        table.add_column("No", style="neon_green", justify="right", width=4)
+        table.add_column("Member", style="bold white")
+        table.add_column("Role", style="cyan")
+        table.add_column("Usage", style="dim")
+        table.add_column("Status", style="yellow")
+
         for idx, member in enumerate(members, start=1):
             encrypted_msisdn = member.get("msisdn", "")
             msisdn = decrypt_circle_msisdn(api_key, encrypted_msisdn)
             
-            member_id = member.get("member_id", "")
             member_role = member.get("member_role", "N/A")
-            member_subs_number = member.get("subscriber_number", "")
             
             join_date_ts = member.get("join_date", 0)
             slot_type = member.get("slot_type", "N/A")
@@ -241,65 +255,74 @@ def show_circle_info(api_key: str, tokens: dict):
             
             me_mark = ""
             if str(msisdn) == str(my_msisdn):
-                me_mark = "(You)"
+                me_mark = " [bold neon_green](You)[/]"
             
             member_type = "Parent" if member_role == "PARENT" else "Member"
             formated_quota_allocated = format_quota_byte(member_allocation_byte)
             formated_quota_used = format_quota_byte(member_allocation_byte - member_remaining_byte)
-            print(f"{idx}. {formatted_msisdn} ({member_name}) | {member_type} {me_mark}")
-            print(f"   Joined: {datetime.fromtimestamp(join_date_ts).strftime('%Y-%m-%d')} | Slot Type: {slot_type} | Status: {member_status}")
-            print(f"   Usage: {formated_quota_used} / {formated_quota_allocated}")
             
-            print("-" * WIDTH)
+            table.add_row(
+                str(idx),
+                f"{formatted_msisdn}\n{member_name}{me_mark}",
+                member_type,
+                f"{formated_quota_used} / {formated_quota_allocated}",
+                member_status
+            )
+
+        print_cyber_panel(table, title="CIRCLE MEMBERS")
             
-        print("-" * WIDTH)
-        print("Options:")
-        print("-" * WIDTH)
-        print("1. Invite Member to Circle")
-        print("del <number> - Remove Member from Circle (e.g., del 1)")
-        print("acc <number> - Accept Invitation / Force Accept Member")
-        print("2. View Circle Bonus List")
-        print("00. Kembali ke menu utama")
-        choice = input("Pilih opsi: ")
+        console.print(Panel(
+            """[bold white]1[/]: Invite Member
+[bold white]del <N>[/]: Remove Member
+[bold white]acc <N>[/]: Accept Invitation
+[bold white]2[/]: View Bonus List
+[bold white]00[/]: Back to Main Menu""",
+            title="ACTIONS",
+            border_style="neon_cyan"
+        ))
+
+        choice = cyber_input("Pilih opsi")
         if choice == "00":
             in_circle_menu = False
         elif choice == "1":
-            msisdn_to_invite = input("Enter the MSISDN of the member to invite (e.g., 6281234567890): ")
-            validate_res = validate_circle_member(api_key, tokens, msisdn_to_invite)
+            msisdn_to_invite = cyber_input("Enter MSISDN to invite (e.g., 6281234567890)")
+            with loading_animation("Validating member..."):
+                validate_res = validate_circle_member(api_key, tokens, msisdn_to_invite)
             if validate_res.get("status") == "SUCCESS":
                 if validate_res.get("data", {}).get("response_code", "") != "200-2001":
-                    print(f"Cannot invite {msisdn_to_invite}: {validate_res.get('data', {}).get('message', 'Unknown error')}")
+                    console.print(f"[error]Cannot invite {msisdn_to_invite}: {validate_res.get('data', {}).get('message', 'Unknown error')}[/]")
                     pause()
                     continue
             
-            member_name = input("Enter the name of the member to invite: ")
+            member_name = cyber_input("Enter member name")
             
-            invite_res = invite_circle_member(
-                api_key,
-                tokens,
-                msisdn_to_invite,
-                member_name,
-                group_id,
-                parent_member_id
-            )
+            with loading_animation("Sending invitation..."):
+                invite_res = invite_circle_member(
+                    api_key,
+                    tokens,
+                    msisdn_to_invite,
+                    member_name,
+                    group_id,
+                    parent_member_id
+                )
             if invite_res.get("status") == "SUCCESS":
                 if invite_res.get("data", {}).get("response_code", "") == "200-00":
-                    print(f"Invitation sent to {msisdn_to_invite} successfully.")
+                    console.print(f"[neon_green]Invitation sent to {msisdn_to_invite} successfully.[/]")
                 else:
-                    print(f"Failed to invite {msisdn_to_invite}: {invite_res.get('data', {}).get('message', 'Unknown error')}")
+                    console.print(f"[error]Failed to invite {msisdn_to_invite}: {invite_res.get('data', {}).get('message', 'Unknown error')}[/]")
             pause()
         elif choice.startswith("del "):
             try:
                 member_number = int(choice.split(" ")[1])
                 if member_number < 1 or member_number > len(members):
-                    print("Invalid member number.")
+                    console.print("[error]Invalid member number.[/]")
                     pause()
                     continue
                 member_to_remove = members[member_number - 1]
                 
                 # Prevent removing parent
                 if member_to_remove.get("member_role", "") == "PARENT":
-                    print("Cannot remove the parent member from the Circle.")
+                    console.print("[error]Cannot remove the parent member from the Circle.[/]")
                     pause()
                     continue
                 
@@ -308,70 +331,70 @@ def show_circle_info(api_key: str, tokens: dict):
                 # Prevent removing last member
                 is_last_member = len(members) == 2
                 if is_last_member:
-                    print("Cannot remove the last member from the Circle.")
+                    console.print("[error]Cannot remove the last member from the Circle.[/]")
                     pause()
                     continue
                 
                 msisdn_to_remove = decrypt_circle_msisdn(api_key, member_to_remove.get("msisdn", ""))
-                confirm = input(f"Are you sure you want to remove {msisdn_to_remove} from the Circle? (y/n): ")
+                confirm = cyber_input(f"Are you sure you want to remove {msisdn_to_remove} from the Circle? (y/n)")
                 if confirm.lower() != "y":
-                    print("Removal cancelled.")
+                    console.print("[warning]Removal cancelled.[/]")
                     pause()
                     continue
                 
-                remove_res = remove_circle_member(
-                    api_key,
-                    tokens,
-                    member_id,
-                    group_id,
-                    parent_member_id,
-                    is_last_member
-                )
+                with loading_animation("Removing member..."):
+                    remove_res = remove_circle_member(
+                        api_key,
+                        tokens,
+                        member_id,
+                        group_id,
+                        parent_member_id,
+                        is_last_member
+                    )
                 if remove_res.get("status") == "SUCCESS":
-                    print(f"{msisdn_to_remove} has been removed from the Circle.")
-                    print(json.dumps(remove_res, indent=2))
+                    console.print(f"[neon_green]{msisdn_to_remove} has been removed from the Circle.[/]")
                 else:
-                    print(f"Error: {remove_res}")
+                    console.print(f"[error]Error: {remove_res}[/]")
             except ValueError:
-                print("Invalid input format for deletion.")
+                console.print("[error]Invalid input format for deletion.[/]")
             pause()
         elif choice.startswith("acc "):
             try:
                 member_number = int(choice.split(" ")[1])
                 if member_number < 1 or member_number > len(members):
-                    print("Invalid member number.")
+                    console.print("[error]Invalid member number.[/]")
                     pause()
                     continue
                 member_to_accept = members[member_number - 1]
                 
                 member_status = member_to_accept.get("status", "")
                 if member_status != "INVITED":
-                    print("This member is not in an invited state.")
+                    console.print("[warning]This member is not in an invited state.[/]")
                     pause()
                     continue
                 
                 member_id = member_to_accept.get("member_id", "")
                 msisdn_to_accept = decrypt_circle_msisdn(api_key, member_to_accept.get("msisdn", ""))
-                confirm = input(f"Do you want to accept the invitation for {msisdn_to_accept}? (y/n): ")
+                confirm = cyber_input(f"Do you want to accept the invitation for {msisdn_to_accept}? (y/n)")
                 if confirm.lower() != "y":
-                    print("Acceptance cancelled.")
+                    console.print("[warning]Acceptance cancelled.[/]")
                     pause()
                     continue
                 
-                accept_res = accept_circle_invitation(
-                    api_key,
-                    tokens,
-                    group_id,
-                    member_id,
-                    )
+                with loading_animation("Accepting invitation..."):
+                    accept_res = accept_circle_invitation(
+                        api_key,
+                        tokens,
+                        group_id,
+                        member_id,
+                        )
 
                 if accept_res.get("status") == "SUCCESS":
-                    print(f"Invitation for {msisdn_to_accept} has been accepted.")
-                    print(json.dumps(accept_res, indent=2))
+                    console.print(f"[neon_green]Invitation for {msisdn_to_accept} has been accepted.[/]")
                 else:
-                    print(f"Error: {accept_res}")
+                    console.print(f"[error]Error: {accept_res}[/]")
             except ValueError:
-                print("Invalid input format for acceptance.")
+                console.print("[error]Invalid input format for acceptance.[/]")
             pause()
         elif choice == "2":
             show_bonus_list(
@@ -380,4 +403,3 @@ def show_circle_info(api_key: str, tokens: dict):
                 parent_subs_id,
                 group_id
             )
-

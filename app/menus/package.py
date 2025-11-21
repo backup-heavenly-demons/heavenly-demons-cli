@@ -15,19 +15,21 @@ from app.type_dict import PaymentItem
 from app.menus.purchase import purchase_n_times, purchase_n_times_by_option_code
 from app.menus.util import format_quota_byte
 from app.service.decoy import DecoyInstance
+from app.console import console, print_cyber_panel, cyber_input, loading_animation, print_step
+from rich.table import Table
+from rich.panel import Panel
 
 def show_package_details(api_key, tokens, package_option_code, is_enterprise, option_order = -1):
     active_user = AuthInstance.active_user
     subscription_type = active_user.get("subscription_type", "")
     
     clear_screen()
-    print("-------------------------------------------------------")
-    print("Detail Paket")
-    print("-------------------------------------------------------")
-    package = get_package(api_key, tokens, package_option_code)
-    # print(f"[SPD-202]:\n{json.dumps(package, indent=1)}")
+
+    with loading_animation("Fetching package details..."):
+        package = get_package(api_key, tokens, package_option_code)
+
     if not package:
-        print("Failed to load package details.")
+        console.print("[error]Failed to load package details.[/]")
         pause()
         return False
 
@@ -35,10 +37,9 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
     detail = display_html(package["package_option"]["tnc"])
     validity = package["package_option"]["validity"]
 
-    option_name = package.get("package_option", {}).get("name","") #Vidio
-    family_name = package.get("package_family", {}).get("name","") #Unlimited Turbo
-    variant_name = package.get("package_detail_variant", "").get("name","") #For Xtra Combo
-    option_name = package.get("package_option", {}).get("name","") #Vidio
+    option_name = package.get("package_option", {}).get("name","")
+    family_name = package.get("package_family", {}).get("name","")
+    variant_name = package.get("package_detail_variant", "").get("name","")
     
     title = f"{family_name} - {variant_name} - {option_name}".strip()
     
@@ -62,113 +63,97 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
         )
     ]
     
-    print("-------------------------------------------------------")
-    print(f"Nama: {title}")
-    print(f"Harga: Rp {price}")
-    print(f"Payment For: {payment_for}")
-    print(f"Masa Aktif: {validity}")
-    print(f"Point: {package['package_option']['point']}")
-    print(f"Plan Type: {package['package_family']['plan_type']}")
-    print("-------------------------------------------------------")
-    print(f"Family Code: {family_code}")
-    print(f"Parent Code (for addon/dummy): {parent_code}")
-    print("-------------------------------------------------------")
+    # Details Table
+    details_table = Table(show_header=False, box=None, padding=(0, 2))
+    details_table.add_column("Key", style="neon_cyan", justify="right")
+    details_table.add_column("Value", style="bold white")
+
+    details_table.add_row("Nama:", title)
+    details_table.add_row("Harga:", f"Rp {price}")
+    details_table.add_row("Payment For:", str(payment_for))
+    details_table.add_row("Masa Aktif:", str(validity))
+    details_table.add_row("Point:", str(package['package_option']['point']))
+    details_table.add_row("Plan Type:", package['package_family']['plan_type'])
+    details_table.add_row("Family Code:", family_code)
+    details_table.add_row("Parent Code:", parent_code)
+
+    print_cyber_panel(details_table, title="DETAIL PAKET")
+
     benefits = package["package_option"]["benefits"]
     if benefits and isinstance(benefits, list):
-        print("Benefits:")
+        benefit_table = Table(show_header=True, header_style="neon_pink", box=None)
+        benefit_table.add_column("Benefit Name", style="white")
+        benefit_table.add_column("Total/Quota", style="neon_green")
+        benefit_table.add_column("Type", style="dim")
+
         for benefit in benefits:
-            print("-------------------------------------------------------")
-            print(f" Name: {benefit['name']}")
-            print(f"  Item id: {benefit['item_id']}")
+            total_display = ""
             data_type = benefit['data_type']
             if data_type == "VOICE" and benefit['total'] > 0:
-                print(f"  Total: {benefit['total']/60} menit")
+                total_display = f"{benefit['total']/60} menit"
             elif data_type == "TEXT" and benefit['total'] > 0:
-                print(f"  Total: {benefit['total']} SMS")
+                total_display = f"{benefit['total']} SMS"
             elif data_type == "DATA" and benefit['total'] > 0:
                 if benefit['total'] > 0:
                     quota = int(benefit['total'])
                     # It is in byte, make it in GB
                     if quota >= 1_000_000_000:
                         quota_gb = quota / (1024 ** 3)
-                        print(f"  Quota: {quota_gb:.2f} GB")
+                        total_display = f"{quota_gb:.2f} GB"
                     elif quota >= 1_000_000:
                         quota_mb = quota / (1024 ** 2)
-                        print(f"  Quota: {quota_mb:.2f} MB")
+                        total_display = f"{quota_mb:.2f} MB"
                     elif quota >= 1_000:
                         quota_kb = quota / 1024
-                        print(f"  Quota: {quota_kb:.2f} KB")
+                        total_display = f"{quota_kb:.2f} KB"
                     else:
-                        print(f"  Total: {quota}")
+                        total_display = f"{quota} B"
             elif data_type not in ["DATA", "VOICE", "TEXT"]:
-                print(f"  Total: {benefit['total']} ({data_type})")
+                total_display = f"{benefit['total']}"
             
             if benefit["is_unlimited"]:
-                print("  Unlimited: Yes")
-    print("-------------------------------------------------------")
-    addons = get_addons(api_key, tokens, package_option_code)
-    
+                total_display = "Unlimited"
 
-    bonuses = addons.get("bonuses", [])
-    
-    # Pick 1st bonus if available, need more testing
-    # if len(bonuses) > 0:
-    #     payment_items.append(
-    #         PaymentItem(
-    #             item_code=bonuses[0]["package_option_code"],
-    #             product_type="",
-    #             item_price=0,
-    #             item_name=bonuses[0]["name"],
-    #             tax=0,
-    #             token_confirmation="",
-    #         )
-    #     )
-    
-    # Pick all bonuses, need more testing
-    # for bonus in bonuses:
-    #     payment_items.append(
-    #         PaymentItem(
-    #             item_code=bonus["package_option_code"],
-    #             product_type="",
-    #             item_price=0,
-    #             item_name=bonus["name"],
-    #             tax=0,
-    #             token_confirmation="",
-    #         )
-    #     )
+            benefit_table.add_row(benefit['name'], total_display, data_type)
 
-    print(f"Addons:\n{json.dumps(addons, indent=2)}")
-    print("-------------------------------------------------------")
-    print(f"SnK MyXL:\n{detail}")
-    print("-------------------------------------------------------")
+        print_cyber_panel(benefit_table, title="BENEFITS")
+    
+    with loading_animation("Checking addons..."):
+        addons = get_addons(api_key, tokens, package_option_code)
+    
+    # print(f"Addons:\n{json.dumps(addons, indent=2)}") # Reduced noise
+
+    console.print(Panel(detail, title="[neon_pink]SnK MyXL[/]", border_style="dim white"))
     
     in_package_detail_menu = True
     while in_package_detail_menu:
-        print("Options:")
-        print("1. Beli dengan Pulsa")
-        print("2. Beli dengan E-Wallet")
-        print("3. Bayar dengan QRIS")
-        print("4. Pulsa + Decoy")
-        print("5. Pulsa + Decoy V2")
-        print("6. QRIS + Decoy (+1K)")
-        print("7. QRIS + Decoy V2")
-        print("8. Pulsa N kali")
-        # print("9. Debug Share Package")
+        # Options Menu
+        menu_table = Table(show_header=False, box=None)
+        menu_table.add_row("1", "Beli dengan Pulsa")
+        menu_table.add_row("2", "Beli dengan E-Wallet")
+        menu_table.add_row("3", "Bayar dengan QRIS")
+        menu_table.add_row("4", "Pulsa + Decoy")
+        menu_table.add_row("5", "Pulsa + Decoy V2")
+        menu_table.add_row("6", "QRIS + Decoy (+1K)")
+        menu_table.add_row("7", "QRIS + Decoy V2")
+        menu_table.add_row("8", "Pulsa N kali")
 
         # Sometimes payment_for is empty, so we set default to BUY_PACKAGE
         if payment_for == "":
             payment_for = "BUY_PACKAGE"
         
         if payment_for == "REDEEM_VOUCHER":
-            print("B. Ambil sebagai bonus (jika tersedia)")
-            print("BA. Kirim bonus (jika tersedia)")
-            print("L. Beli dengan Poin (jika tersedia)")
+            menu_table.add_row("B", "Ambil sebagai bonus")
+            menu_table.add_row("BA", "Kirim bonus")
+            menu_table.add_row("L", "Beli dengan Poin")
         
         if option_order != -1:
-            print("0. Tambah ke Bookmark")
-        print("00. Kembali ke daftar paket")
+            menu_table.add_row("0", "Tambah ke Bookmark")
+        menu_table.add_row("00", "Kembali ke daftar paket")
 
-        choice = input("Pilihan: ")
+        print_cyber_panel(menu_table, title="ACTIONS")
+
+        choice = cyber_input("Pilihan")
         if choice == "00":
             return False
         elif choice == "0" and option_order != -1:
@@ -182,9 +167,9 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 order=option_order,
             )
             if success:
-                print("Paket berhasil ditambahkan ke bookmark.")
+                console.print("[neon_green]Paket berhasil ditambahkan ke bookmark.[/]")
             else:
-                print("Paket sudah ada di bookmark.")
+                console.print("[warning]Paket sudah ada di bookmark.[/]")
             pause()
             continue
         
@@ -196,7 +181,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 payment_for,
                 True
             )
-            input("Silahkan cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice == '2':
             show_multipayment(
@@ -206,7 +191,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 payment_for,
                 True,
             )
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice == '3':
             show_qris_payment(
@@ -216,7 +201,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 payment_for,
                 True,
             )
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice == '4':
             # Balance with Decoy            
@@ -229,7 +214,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
             )
             
             if not decoy_package_detail:
-                print("Failed to load decoy package details.")
+                console.print("[error]Failed to load decoy package details.[/]")
                 pause()
                 return False
 
@@ -270,9 +255,9 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                         overwrite_amount=valid_amount,
                     )
                     if res and res.get("status", "") == "SUCCESS":
-                        print("Purchase successful!")
+                        console.print("[neon_green]Purchase successful![/]")
             else:
-                print("Purchase successful!")
+                console.print("[neon_green]Purchase successful![/]")
             pause()
             return True
         elif choice == '5':
@@ -286,7 +271,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
             )
             
             if not decoy_package_detail:
-                print("Failed to load decoy package details.")
+                console.print("[error]Failed to load decoy package details.[/]")
                 pause()
                 return False
 
@@ -329,9 +314,9 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                         token_confirmation_idx=-1
                     )
                     if res and res.get("status", "") == "SUCCESS":
-                        print("Purchase successful!")
+                        console.print("[neon_green]Purchase successful![/]")
             else:
-                print("Purchase successful!")
+                console.print("[neon_green]Purchase successful![/]")
             pause()
             return True
         elif choice == '6':
@@ -345,7 +330,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
             )
             
             if not decoy_package_detail:
-                print("Failed to load decoy package details.")
+                console.print("[error]Failed to load decoy package details.[/]")
                 pause()
                 return False
 
@@ -360,11 +345,11 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 )
             )
             
-            print("-"*55)
-            print(f"Harga Paket Utama: Rp {price}")
-            print(f"Harga Paket Decoy: Rp {decoy_package_detail['package_option']['price']}")
-            print("Silahkan sesuaikan amount (trial & error, 0 = malformed)")
-            print("-"*55)
+            console.print(Panel(
+                f"Harga Paket Utama: Rp {price}\nHarga Paket Decoy: Rp {decoy_package_detail['package_option']['price']}\n\nSilahkan sesuaikan amount (trial & error, 0 = malformed)",
+                title="DECOY QRIS INFO",
+                border_style="warning"
+            ))
 
             show_qris_payment(
                 api_key,
@@ -375,7 +360,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 token_confirmation_idx=1
             )
             
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice == '7':
             # QRIS decoy + Rp0
@@ -388,7 +373,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
             )
             
             if not decoy_package_detail:
-                print("Failed to load decoy package details.")
+                console.print("[error]Failed to load decoy package details.[/]")
                 pause()
                 return False
 
@@ -403,11 +388,11 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 )
             )
             
-            print("-"*55)
-            print(f"Harga Paket Utama: Rp {price}")
-            print(f"Harga Paket Decoy: Rp {decoy_package_detail['package_option']['price']}")
-            print("Silahkan sesuaikan amount (trial & error, 0 = malformed)")
-            print("-"*55)
+            console.print(Panel(
+                f"Harga Paket Utama: Rp {price}\nHarga Paket Decoy: Rp {decoy_package_detail['package_option']['price']}\n\nSilahkan sesuaikan amount (trial & error, 0 = malformed)",
+                title="DECOY QRIS INFO",
+                border_style="warning"
+            ))
 
             show_qris_payment(
                 api_key,
@@ -418,14 +403,14 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 token_confirmation_idx=1
             )
             
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice == '8':
             #Pulsa N kali
-            use_decoy_for_n_times = input("Use decoy package? (y/n): ").strip().lower() == 'y'
-            n_times_str = input("Enter number of times to purchase (e.g., 3): ").strip()
+            use_decoy_for_n_times = cyber_input("Use decoy package? (y/n)").strip().lower() == 'y'
+            n_times_str = cyber_input("Enter number of times to purchase (e.g., 3)").strip()
 
-            delay_seconds_str = input("Enter delay between purchases in seconds (e.g., 25): ").strip()
+            delay_seconds_str = cyber_input("Enter delay between purchases in seconds (e.g., 25)").strip()
             if not delay_seconds_str.isdigit():
                 delay_seconds_str = "0"
 
@@ -434,7 +419,7 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 if n_times < 1:
                     raise ValueError("Number must be at least 1.")
             except ValueError:
-                print("Invalid number entered. Please enter a valid integer.")
+                console.print("[error]Invalid number entered. Please enter a valid integer.[/]")
                 pause()
                 continue
             purchase_n_times_by_option_code(
@@ -455,10 +440,10 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 price=price,
                 item_name=variant_name
             )
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         elif choice.lower() == 'ba':
-            destination_msisdn = input("Masukkan nomor tujuan bonus (mulai dengan 62): ").strip()
+            destination_msisdn = cyber_input("Masukkan nomor tujuan bonus (mulai dengan 62)").strip()
             bounty_allotment(
                 api_key=api_key,
                 tokens=tokens,
@@ -479,10 +464,10 @@ def show_package_details(api_key, tokens, package_option_code, is_enterprise, op
                 payment_target=package_option_code,
                 price=price,
             )
-            input("Silahkan lakukan pembayaran & cek hasil pembelian di aplikasi MyXL. Tekan Enter untuk kembali.")
+            pause()
             return True
         else:
-            print("Purchase cancelled.")
+            console.print("[warning]Purchase cancelled.[/]")
             return False
     pause()
     sys.exit(0)
@@ -495,24 +480,26 @@ def get_packages_by_family(
     api_key = AuthInstance.api_key
     tokens = AuthInstance.get_active_tokens()
     if not tokens:
-        print("No active user tokens found.")
+        console.print("[error]No active user tokens found.[/]")
         pause()
         return None
     
     packages = []
     
-    data = get_family(
-        api_key,
-        tokens,
-        family_code,
-        is_enterprise,
-        migration_type
-    )
+    with loading_animation("Fetching family packages..."):
+        data = get_family(
+            api_key,
+            tokens,
+            family_code,
+            is_enterprise,
+            migration_type
+        )
     
     if not data:
-        print("Failed to load family data.")
+        console.print("[error]Failed to load family data.[/]")
         pause()
         return None
+
     price_currency = "Rp"
     rc_bonus_type = data["package_family"].get("rc_bonus_type", "")
     if rc_bonus_type == "MYREWARDS":
@@ -521,29 +508,42 @@ def get_packages_by_family(
     in_package_menu = True
     while in_package_menu:
         clear_screen()
-        # print(f"[GPBF-283]:\n{json.dumps(data, indent=2)}")
-        print("-------------------------------------------------------")        
-        print(f"Family Name: {data['package_family']['name']}")
-        print(f"Family Code: {family_code}")
-        print(f"Family Type: {data['package_family']['package_family_type']}")
-        # print(f"Enterprise: {'Yes' if is_enterprise else 'No'}")
-        print(f"Variant Count: {len(data['package_variants'])}")
-        print("-------------------------------------------------------")
-        print("Paket Tersedia")
-        print("-------------------------------------------------------")
+
+        # Family Info Panel
+        family_table = Table(show_header=False, box=None)
+        family_table.add_column("Key", style="neon_cyan", justify="right")
+        family_table.add_column("Value", style="bold white")
+
+        family_table.add_row("Family Name:", data['package_family']['name'])
+        family_table.add_row("Family Code:", family_code)
+        family_table.add_row("Family Type:", data['package_family']['package_family_type'])
+        family_table.add_row("Variant Count:", str(len(data['package_variants'])))
+
+        print_cyber_panel(family_table, title="FAMILY INFO")
+
+        # Packages List
+        pkg_table = Table(show_header=True, header_style="neon_pink", box=None, padding=(0, 1))
+        pkg_table.add_column("No", style="neon_green", justify="right", width=4)
+        pkg_table.add_column("Package Name", style="bold white")
+        pkg_table.add_column("Price", style="yellow")
         
         package_variants = data["package_variants"]
         
         option_number = 1
-        variant_number = 1
+
+        # Rebuild packages list each render to ensure correct indexing if needed,
+        # though strictly speaking it's static per fetch.
+        packages = []
         
         for variant in package_variants:
             variant_name = variant["name"]
-            variant_code = variant["package_variant_code"]
-            print(f" Variant {variant_number}: {variant_name}")
-            print(f" Code: {variant_code}")
+            # pkg_table.add_row("", f"[dim]{variant_name}[/]", "") # Section header style
+
             for option in variant["package_options"]:
                 option_name = option["name"]
+                price_display = f"{price_currency} {option['price']}"
+
+                full_name = f"{variant_name} - {option_name}"
                 
                 packages.append({
                     "number": option_number,
@@ -554,30 +554,27 @@ def get_packages_by_family(
                     "option_order": option["order"]
                 })
                                 
-                print(f"   {option_number}. {option_name} - {price_currency} {option['price']}")
-                
+                pkg_table.add_row(str(option_number), full_name, price_display)
                 option_number += 1
-            
-            if variant_number < len(package_variants):
-                print("-------------------------------------------------------")
-            variant_number += 1
-        print("-------------------------------------------------------")
 
-        print("00. Kembali ke menu utama")
-        print("-------------------------------------------------------")
-        pkg_choice = input("Pilih paket (nomor): ")
+        print_cyber_panel(pkg_table, title="AVAILABLE PACKAGES")
+
+        console.print("[dim]00. Kembali ke menu utama[/]")
+        pkg_choice = cyber_input("Pilih paket (nomor)")
         if pkg_choice == "00":
             in_package_menu = False
             return None
         
         if isinstance(pkg_choice, str) == False or not pkg_choice.isdigit():
-            print("Input tidak valid. Silakan masukan nomor paket.")
+            console.print("[error]Input tidak valid. Silakan masukan nomor paket.[/]")
+            pause()
             continue
         
         selected_pkg = next((p for p in packages if p["number"] == int(pkg_choice)), None)
         
         if not selected_pkg:
-            print("Paket tidak ditemukan. Silakan masukan nomor yang benar.")
+            console.print("[error]Paket tidak ditemukan. Silakan masukan nomor yang benar.[/]")
+            pause()
             continue
         
         show_package_details(
@@ -596,7 +593,7 @@ def fetch_my_packages():
         api_key = AuthInstance.api_key
         tokens = AuthInstance.get_active_tokens()
         if not tokens:
-            print("No active user tokens found.")
+            console.print("[error]No active user tokens found.[/]")
             pause()
             return None
         
@@ -610,81 +607,62 @@ def fetch_my_packages():
             "family_member_id": ""
         }
         
-        print("Fetching my packages...")
-        res = send_api_request(api_key, path, payload, id_token, "POST")
+        with loading_animation("Fetching my packages..."):
+            res = send_api_request(api_key, path, payload, id_token, "POST")
+
         if res.get("status") != "SUCCESS":
-            print("Failed to fetch packages")
-            print("Response:", res)
+            console.print("[error]Failed to fetch packages[/]")
+            console.print_json(data=res)
             pause()
             return None
         
         quotas = res["data"]["quotas"]
         
         clear_screen()
-        print("=======================================================")
-        print("======================My Packages======================")
-        print("=======================================================")
-        my_packages =[]
+
+        my_packages = []
         num = 1
+
+        # Using Columns or a Grid might be too cluttered if many packages.
+        # Let's stick to a Table or sequence of Panels.
+        # Since user wants "cool", let's use a main Table for the list,
+        # but the details are complex.
+
+        # Let's verify content first.
+
+        main_table = Table(show_header=True, header_style="neon_pink", box=None)
+        main_table.add_column("No", style="neon_green", justify="right", width=4)
+        main_table.add_column("Package Name", style="bold white")
+        main_table.add_column("Quota Info", style="cyan")
+        main_table.add_column("Exp", style="dim")
+
         for quota in quotas:
-            quota_code = quota["quota_code"] # Can be used as option_code
-            group_code = quota["group_code"]
-            group_name = quota["group_name"]
+            quota_code = quota["quota_code"]
             quota_name = quota["name"]
-            family_code = "N/A"
             
             product_subscription_type = quota.get("product_subscription_type", "")
             product_domain = quota.get("product_domain", "")
             
-            benefit_infos = []
+            # Summarize benefits for table view
             benefits = quota.get("benefits", [])
-            if len(benefits) > 0:
-                for benefit in benefits:
-                    benefit_id = benefit.get("id", "")
-                    name = benefit.get("name", "")
-                    data_type = benefit.get("data_type", "N/A")
-                    benefit_info = "  -----------------------------------------------------\n"
-                    benefit_info += f"  ID    : {benefit_id}\n"
-                    benefit_info += f"  Name  : {name}\n"
-                    benefit_info += f"  Type  : {data_type}\n"
-                    
+            summary = "No benefits"
+            if benefits:
+                b = benefits[0] # Take first benefit as summary
+                data_type = b.get("data_type", "")
+                remaining = b.get("remaining", 0)
+                total = b.get("total", 0)
 
-                    remaining = benefit.get("remaining", 0)
-                    total = benefit.get("total", 0)
+                if data_type == "DATA":
+                     summary = f"{format_quota_byte(remaining)} / {format_quota_byte(total)}"
+                elif data_type == "VOICE":
+                     summary = f"{remaining/60:.1f}m / {total/60:.1f}m"
+                else:
+                     summary = f"{remaining} / {total} {data_type}"
 
-                    if data_type == "DATA":
-                        remaining_str = format_quota_byte(remaining)
-                        total_str = format_quota_byte(total)
-                        
-                        benefit_info += f"  Kuota : {remaining_str} / {total_str}"
-                    elif data_type == "VOICE":
-                        benefit_info += f"  Kuota : {remaining/60:.2f} / {total/60:.2f} menit"
-                    elif data_type == "TEXT":
-                        benefit_info += f"  Kuota : {remaining} / {total} SMS"
-                    else:
-                        benefit_info += f"  Kuota : {remaining} / {total}"
+                if len(benefits) > 1:
+                    summary += f" (+{len(benefits)-1} more)"
 
-                    benefit_infos.append(benefit_info)
-                
-            
-            print(f"fetching package no. {num} details...")
-            package_details = get_package(api_key, tokens, quota_code)
-            if package_details:
-                family_code = package_details["package_family"]["package_family_code"]
-            
-            print("=======================================================")
-            print(f"Package {num}")
-            print(f"Name: {quota_name}")
-            print("Benefits:")
-            if len(benefit_infos) > 0:
-                for bi in benefit_infos:
-                    print(bi)
-                print("  -----------------------------------------------------")
-            print(f"Group Name: {group_name}")
-            print(f"Quota Code: {quota_code}")
-            print(f"Family Code: {family_code}")
-            print(f"Group Code: {group_code}")
-            print("=======================================================")
+            main_table.add_row(str(num), quota_name, summary, "")
             
             my_packages.append({
                 "number": num,
@@ -692,14 +670,21 @@ def fetch_my_packages():
                 "quota_code": quota_code,
                 "product_subscription_type": product_subscription_type,
                 "product_domain": product_domain,
+                "full_data": quota # Store full data for detailed view if needed
             })
-            
             num += 1
+
+        print_cyber_panel(main_table, title="MY PACKAGES")
         
-        print("Input package number to view detail.")
-        print("Input del <package number> to unsubscribe from a package.")
-        print("Input 00 to return to main menu.")
-        choice = input("Choice: ")
+        console.print(Panel(
+            """[bold white]Input Number[/]: View Detail
+[bold white]del <N>[/]: Unsubscribe
+[bold white]00[/]: Back to Main Menu""",
+            title="ACTIONS",
+            border_style="neon_cyan"
+        ))
+
+        choice = cyber_input("Choice")
         if choice == "00":
             in_my_packages_menu = False
 
@@ -707,38 +692,41 @@ def fetch_my_packages():
         if choice.isdigit() and int(choice) > 0 and int(choice) <= len(my_packages):
             selected_pkg = next((pkg for pkg in my_packages if pkg["number"] == int(choice)), None)
             if not selected_pkg:
-                print("Paket tidak ditemukan. Silakan masukan nomor yang benar.")
+                console.print("[error]Paket tidak ditemukan. Silakan masukan nomor yang benar.[/]")
                 pause()
                 continue
             
+            # Show full details
             _ = show_package_details(api_key, tokens, selected_pkg["quota_code"], False)
         
         elif choice.startswith("del "):
             del_parts = choice.split(" ")
             if len(del_parts) != 2 or not del_parts[1].isdigit():
-                print("Invalid input for delete command.")
+                console.print("[error]Invalid input for delete command.[/]")
                 pause()
+                continue
             
             del_number = int(del_parts[1])
             del_pkg = next((pkg for pkg in my_packages if pkg["number"] == del_number), None)
             if not del_pkg:
-                print("Package not found for deletion.")
+                console.print("[error]Package not found for deletion.[/]")
                 pause()
+                continue
             
-            confirm = input(f"Are you sure you want to unsubscribe from package  {del_number}. {del_pkg['name']}? (y/n): ")
+            confirm = cyber_input(f"Are you sure you want to unsubscribe from package  {del_number}. {del_pkg['name']}? (y/n)")
             if confirm.lower() == 'y':
-                print(f"Unsubscribing from package number {del_pkg['name']}...")
-                success = unsubscribe(
-                    api_key,
-                    tokens,
-                    del_pkg["quota_code"],
-                    del_pkg["product_subscription_type"],
-                    del_pkg["product_domain"]
-                )
+                with loading_animation(f"Unsubscribing from {del_pkg['name']}..."):
+                    success = unsubscribe(
+                        api_key,
+                        tokens,
+                        del_pkg["quota_code"],
+                        del_pkg["product_subscription_type"],
+                        del_pkg["product_domain"]
+                    )
                 if success:
-                    print("Successfully unsubscribed from the package.")
+                    console.print("[neon_green]Successfully unsubscribed from the package.[/]")
                 else:
-                    print("Failed to unsubscribe from the package.")
+                    console.print("[error]Failed to unsubscribe from the package.[/]")
             else:
-                print("Unsubscribe cancelled.")
+                console.print("[warning]Unsubscribe cancelled.[/]")
             pause()

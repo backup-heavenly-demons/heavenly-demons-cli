@@ -2,6 +2,8 @@ from app.client.store.search import get_family_list, get_store_packages
 from app.menus.package import get_packages_by_family, show_package_details
 from app.menus.util import clear_screen, pause
 from app.service.auth import AuthInstance
+from app.console import console, print_cyber_panel, cyber_input, loading_animation
+from rich.table import Table
 
 WIDTH = 55
 
@@ -14,10 +16,11 @@ def show_family_list_menu(
         api_key = AuthInstance.api_key
         tokens = AuthInstance.get_active_tokens()
         
-        print("Fetching family list...")
-        family_list_res = get_family_list(api_key, tokens, subs_type, is_enterprise)
+        with loading_animation("Fetching family list..."):
+            family_list_res = get_family_list(api_key, tokens, subs_type, is_enterprise)
+
         if not family_list_res:
-            print("No family list found.")
+            console.print("[warning]No family list found.[/]")
             in_family_list_menu = False
             continue
         
@@ -25,33 +28,36 @@ def show_family_list_menu(
         
         clear_screen()
         
-        print("=" * WIDTH)
-        print("Family List:")
-        print("=" * WIDTH)
+        table = Table(show_header=True, header_style="neon_pink", box=None)
+        table.add_column("No", style="neon_green", justify="right", width=4)
+        table.add_column("Family Name", style="bold white")
+        table.add_column("Family Code", style="dim")
         
         for i, family in enumerate(family_list):
             family_name = family.get("label", "N/A")
             family_code = family.get("id", "N/A")
             
-            print(f"{i + 1}. {family_name}")
-            print(f"   Family code: {family_code}")
-            print("-" * WIDTH)
+            table.add_row(str(i + 1), family_name, family_code)
+
+        print_cyber_panel(table, title="FAMILY LIST")
         
-        print("00. Back to Main Menu")
-        print("Input the number to view packages in that family.")
-        choice = input("Enter your choice: ")
+        console.print("[dim]00. Back to Main Menu[/]")
+        choice = cyber_input("Input the number to view packages in that family")
         if choice == "00":
             in_family_list_menu = False
+            continue
         
         if choice.isdigit() and int(choice) > 0 and int(choice) <= len(family_list):
             selected_family = family_list[int(choice) - 1]
             family_code = selected_family.get("id", "")
             family_name = selected_family.get("label", "N/A")
             
-            print(f"Fetching packages for family: {family_name}...")
+            console.print(f"[info]Fetching packages for family: {family_name}...[/]")
             get_packages_by_family(family_code)
+        else:
+             console.print("[error]Invalid choice.[/]")
+             pause()
     
-    pause()
 
 def show_store_packages_menu(
     subs_type: str = "PREPAID",
@@ -62,10 +68,11 @@ def show_store_packages_menu(
         api_key = AuthInstance.api_key
         tokens = AuthInstance.get_active_tokens()
         
-        print("Fetching store packages...")
-        store_packages_res = get_store_packages(api_key, tokens, subs_type, is_enterprise)
+        with loading_animation("Fetching store packages..."):
+            store_packages_res = get_store_packages(api_key, tokens, subs_type, is_enterprise)
+
         if not store_packages_res:
-            print("No store packages found.")
+            console.print("[warning]No store packages found.[/]")
             in_store_packages_menu = False
             continue
         
@@ -73,14 +80,16 @@ def show_store_packages_menu(
         
         clear_screen()
         
-        print("=" * WIDTH)
-        print("Store Packages:")
-        print("=" * WIDTH)
-        
         packages = {}
+
+        table = Table(show_header=True, header_style="neon_pink", box=None)
+        table.add_column("No", style="neon_green", justify="right", width=4)
+        table.add_column("Package", style="bold white")
+        table.add_column("Price", style="yellow")
+        table.add_column("Validity", style="cyan")
+
         for i, package in enumerate(store_packages):
             title = package.get("title", "N/A")
-            
             
             original_price = package.get("original_price", 0)
             discounted_price = package.get("discounted_price", 0)
@@ -100,18 +109,22 @@ def show_store_packages_menu(
                 "action_param": action_param
             }
             
-            print(f"{i + 1}. {title}")
-            print(f"   Family: {family_name}")
-            print(f"   Price: Rp{price}")
-            print(f"   Validity: {validity}")
-            print("-" * WIDTH)
+            table.add_row(
+                str(i + 1),
+                f"{title}\n[dim]{family_name}[/]",
+                f"Rp{price}",
+                validity
+            )
+
+        print_cyber_panel(table, title="STORE PACKAGES")
         
-        print("00. Back to Main Menu")
-        print("Input the number to view package details.")
-        choice = input("Enter your choice: ")
+        console.print("[dim]00. Back to Main Menu[/]")
+        choice = cyber_input("Input the number to view package details")
         if choice == "00":
             in_store_packages_menu = False
-        elif choice in packages:
+            continue
+
+        if choice in packages:
             selected_package = packages[choice]
             
             action_type = selected_package["action_type"]
@@ -125,10 +138,8 @@ def show_store_packages_menu(
                         is_enterprise
                     )
             else:
-                print("=" * WIDTH)
-                print("Unhandled Action Type")
-                print(f"Action type: {action_type}\nParam: {action_param}")
+                console.print(f"[warning]Unhandled Action Type: {action_type}\nParam: {action_param}[/]")
                 pause()
         else:
-            print("Invalid choice. Please enter a valid package number.")
+            console.print("[error]Invalid choice. Please enter a valid package number.[/]")
             pause()
