@@ -181,9 +181,7 @@
         "overwrite_amount": 15000,
         "token_confirmation_idx": 1,
         "amount_idx": -1
-    }
-]
-[
+    },
     {
         "name": "BPA S 1.2K",
         "price": "Rp1200",
