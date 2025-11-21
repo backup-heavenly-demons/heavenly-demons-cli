@@ -2,38 +2,14 @@ from html.parser import HTMLParser
 import os
 import re
 import textwrap
+from app.console import clear, print_ascii_art, console
 
 def clear_screen():
-    print("Clearing screen...")
-    os.system('cls' if os.name == 'nt' else 'clear')
-    ascii_art = r"""
-            _____                    _____          
-           /\    \                  /\    \         
-          /::\____\                /::\    \        
-         /::::|   |               /::::\    \       
-        /:::::|   |              /::::::\    \      
-       /::::::|   |             /:::/\:::\    \     
-      /:::/|::|   |            /:::/__\:::\    \    
-     /:::/ |::|   |           /::::\   \:::\    \   
-    /:::/  |::|___|______    /::::::\   \:::\    \  
-   /:::/   |::::::::\    \  /:::/\:::\   \:::\    \ 
-  /:::/    |:::::::::\____\/:::/__\:::\   \:::\____\
-  \::/    / ~~~~~/:::/    /\:::\   \:::\   \::/    /
-   \/____/      /:::/    /  \:::\   \:::\   \/____/ 
-               /:::/    /    \:::\   \:::\    \     
-              /:::/    /      \:::\   \:::\____\    
-             /:::/    /        \:::\   \::/    /    
-            /:::/    /          \:::\   \/____/     
-           /:::/    /            \:::\    \         
-          /:::/    /              \:::\____\        
-          \::/    /                \::/    /        
-           \/____/                  \/____/         
-"""
-
-    print(ascii_art)
+    clear()
+    print_ascii_art()
 
 def pause():
-    input("\nPress enter to continue...")
+    console.input("\n[bold neon_green]Press enter to continue...[/]")
 
 class HTMLToText(HTMLParser):
     def __init__(self, width=80):
