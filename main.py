@@ -45,11 +45,11 @@ def show_main_menu(profile):
     profile_table.add_column("Key", style="neon_cyan", justify="right")
     profile_table.add_column("Value", style="bold white")
 
-    profile_table.add_row("Nomor:", profile['number'])
-    profile_table.add_row("Type:", profile['subscription_type'])
+    profile_table.add_row("Nomor:", str(profile['number']))
+    profile_table.add_row("Type:", str(profile['subscription_type']))
     profile_table.add_row("Pulsa:", f"Rp {profile['balance']}")
-    profile_table.add_row("Aktif s/d:", expired_at_dt)
-    profile_table.add_row("Info:", profile['point_info'])
+    profile_table.add_row("Aktif s/d:", str(expired_at_dt))
+    profile_table.add_row("Info:", str(profile['point_info']))
 
     print_cyber_panel(profile_table, title="USER PROFILE")
 
