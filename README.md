@@ -20,11 +20,11 @@ pkg install git -y
 ```
 3. Clone this repo
 ```
-git clone https://github.com/backup-heavenly-demons/me-cli-sunset2
+git clone https://github.com/backup-heavenly-demons/heavenly-demons-cli
 ```
 4. Open the folder
 ```
-cd me-cli-sunset2
+cd heavenly-demons-cli
 ```
 5. Setup
 ```
