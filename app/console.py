@@ -85,16 +85,15 @@ def clear():
 
 def print_ascii_art():
     art = r"""
- [neon_cyan]
-                                      .
-          .                          /:\                         .
-        .n                   .      //!\\     .                  n.
-  .   .dP                  dP     ///art\\\    9b                 9b.    .
- 4    qXb         .       dX     [kang-ukon]    Xb        .       dXp     t
-dX.    9Xb      .dXb    .dxb      \\\dev///      dXb.    dXP     dx6      .Xb
-9XXb._       _.dXXXXb dXXXXbo.      \\¡//      .odXXXXb dXXXXb._       _.dXXP
- 9XXXXXXXXXXXXXXXXXXXVXXXXXXXXOo.    \:/     .oOXXXXXXXXVXXXXXXXXXXXXXXXXXXXP
-  `9XXXXXXXXXXXXXXXXXXXXX'~   ~`OOO8b ' d8OOO'~   ~`XXXXXXXXXXXXXXXXXXXXXP'
+ [neon_cyan]                                      
+          .                                                    .
+        .n                   .        .       .                 n.
+  .   .dP                  dP       .art.      9b                9b.    .
+ 4    qXb         .       dX       ©ukons©      Xb       .       dXp     t
+dX.    9Xb      .dXb    .dxb        ′dev′       dXb.    dXP     dx6     .Xb
+9XXb._       _.dXXXXb dXXXXbo.        ′      .odXXXXb dXXXXb._       _.dXXP
+ 9XXXXXXXXXXXXXXXXXXXVXXXXXXXXOo.            .oOXXXXXXXXVXXXXXXXXXXXXXXXXXXXP
+  `9XXXXXXXXXXXXXXXXXXXXX'~   ~`OOO8b   d8OOO'~   ~`XXXXXXXXXXXXXXXXXXXXXP'
     `9XXXXXXXXXXXP' `9XX' HEAVENLY `98v8P' HEAVENLY `XXP' `9XXXXXXXXXXXP'
         ~~~~~~~       9X.  DEMONS  .db|db.  DEMONS  .XP       ~~~~~~~
                         )b.      .dP'`v'`9b.     .dX(
