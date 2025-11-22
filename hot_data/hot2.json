@@ -241,5 +241,13 @@
         "overwrite_amount": 1000,
         "token_confirmation_idx": 1,
         "amount_idx": -1
+    },
+    {
+        "family_name": "conference 10k 15 GB",
+        "family_code": "5dab52d5-6f02-4678-b72f-088396ceb113",
+        "is_enterprise": false,
+        "variant_name": "conference",
+        "option_name": "conference",
+        "order": 3
     }
                 ]
