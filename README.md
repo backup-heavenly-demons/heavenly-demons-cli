@@ -26,6 +26,9 @@ pkg install python
 ```
 apt install python-pillow
 ```
+```
+pip install -r requirements.txt
+```
 untuk yang sebelumnya pernah menginstal hal diatas atas langsung lakukan ini 
 
 1. Update & Upgrade Termux
