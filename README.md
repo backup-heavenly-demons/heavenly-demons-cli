@@ -25,28 +25,14 @@ pkg install python
 ```
 ```
 apt install python-pillow
-```
-untuk yang sebelumnya pernah menginstal hal diatas atas langsung lakukan ini 
 
-1. Update & Upgrade Termux
 ```
-pkg update && pkg upgrade -y
 ```
-2. Install Git
-```
-pkg install git -y
-```
-3. Clone this repo
-```
+
 git clone https://github.com/backup-heavenly-demons/heavenly-demons-cli
 ```
-4. Open the folder
 ```
 cd heavenly-demons-cli
-```
-5. Setup
-```
-bash setup.sh
 ```
 ```
 pip install -r requirements.txt
